@@ -38,6 +38,16 @@ CSS = """
     div[data-testid="stExpander"] {
         border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
     }
+
+    .twt-mini-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        border-radius: 10px;
+        padding: 10px 12px 8px 12px;
+    }
+    .twt-mini-card .label { font-size: 0.74rem; opacity: 0.65; }
+    .twt-mini-card .value { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
+    .twt-mini-card .delta { font-size: 0.74rem; color: #3DD68C; margin-top: 2px; }
 </style>
 """
 
@@ -81,3 +91,15 @@ def badge_confirmado(confirmado: bool) -> str:
     if confirmado:
         return '<span class="twt-badge real">✓ real</span>'
     return '<span class="twt-badge estimado">⏳ estimado</span>'
+
+
+def mini_card(titulo: str, valor: str, legenda: str) -> str:
+    """Card pequeno com borda tracejada — usado pra deixar claro que é uma projeção/estimativa,
+    não um número real calculado a partir das operações lançadas."""
+    return f"""
+    <div class="twt-mini-card">
+        <div class="label">{titulo}</div>
+        <div class="value">{valor}</div>
+        <div class="delta">{legenda}</div>
+    </div>
+    """
