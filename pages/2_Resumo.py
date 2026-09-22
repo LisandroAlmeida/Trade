@@ -44,11 +44,11 @@ tabela["Data"] = tabela["data"].dt.strftime("%d/%m/%Y")
 tabela["Confirmado"] = tabela["valor_confirmado"].map({True: "real", False: "estimado"})
 st.dataframe(
     tabela[[
-        "Data", "ativo_nome", "resultado_pontos", "contratos", "resultado_realizado", "contratos_operados",
+        "Data", "ativo_codigo", "resultado_pontos", "contratos", "resultado_realizado", "contratos_operados",
         "resultado_final", "Confirmado", "motivo_saida", "saldo_acumulado",
         "pct_sobre_capital_inicial", "sequencia_losses", "sequencia_gains", "observacoes",
     ]].rename(columns={
-        "ativo_nome": "Ativo", "resultado_pontos": "Pontos", "contratos": "Contratos",
+        "ativo_codigo": "Ativo", "resultado_pontos": "Pontos", "contratos": "Contratos",
         "resultado_realizado": "Bruto (R$)", "contratos_operados": "Contratos operados",
         "resultado_final": "Após taxas (R$)", "motivo_saida": "Motivo", "saldo_acumulado": "Saldo (R$)",
         "pct_sobre_capital_inicial": "% capital inicial", "sequencia_losses": "Seq. losses",

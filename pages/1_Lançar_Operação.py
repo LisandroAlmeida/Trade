@@ -12,12 +12,12 @@ header("Lançar Operação", "Registre o resultado do dia — o resto é calcula
 
 parametros = get_parametros()
 ativos = get_ativos(apenas_habilitados=True)
-ativos_por_nome = {a.nome: a for a in ativos}
+ativos_por_codigo = {a.codigo: a for a in ativos}
 
 with st.form("nova_operacao", clear_on_submit=True):
     c1, c2, c3 = st.columns(3)
     data_op = c1.date_input("Data", value=date.today(), format="DD/MM/YYYY")
-    ativo_nome = c2.selectbox("Ativo", options=list(ativos_por_nome.keys()))
+    ativo_codigo_sel = c2.selectbox("Ativo", options=list(ativos_por_codigo.keys()))
     contratos = c3.number_input("Contratos (padrão)", min_value=1, value=parametros.qtd_contratos_padrao, step=1)
 
     c4, c5 = st.columns(2)
@@ -34,7 +34,7 @@ with st.form("nova_operacao", clear_on_submit=True):
     enviado = st.form_submit_button("Salvar operação", type="primary", use_container_width=True)
 
     if enviado:
-        ativo = ativos_por_nome[ativo_nome]
+        ativo = ativos_por_codigo[ativo_codigo_sel]
         resultado_realizado = calc_resultado_realizado(resultado_pontos, ativo.valor_por_ponto, contratos)
         c_operados = int(contratos_operados) if contratos_operados else None
         estimado = calc_resultado_apos_taxas_estimado(
@@ -81,10 +81,10 @@ else:
     pendentes["Data"] = pendentes["data"].dt.strftime("%d/%m/%Y")
     pendentes["Valor real (R$)"] = None
     grade = pendentes[[
-        "id", "Data", "ativo_nome", "resultado_realizado", "contratos_operados",
+        "id", "Data", "ativo_codigo", "resultado_realizado", "contratos_operados",
         "resultado_apos_taxas_estimado", "Valor real (R$)",
     ]].rename(columns={
-        "ativo_nome": "Ativo",
+        "ativo_codigo": "Ativo",
         "resultado_realizado": "Bruto (R$)",
         "contratos_operados": "Contratos operados",
         "resultado_apos_taxas_estimado": "Estimado (R$)",

@@ -39,9 +39,9 @@ with tab_ativos:
         "avisa quando faltar algo pra estimar as taxas."
     )
     ativos = get_ativos()
-    nomes = {a.nome: a for a in ativos}
-    escolhido = st.selectbox("Ativo", options=list(nomes.keys()))
-    a = nomes[escolhido]
+    codigos = {a.codigo: a for a in ativos}
+    escolhido = st.selectbox("Ativo", options=list(codigos.keys()))
+    a = codigos[escolhido]
 
     with st.form(f"ativo_{a.codigo}"):
         st.number_input(

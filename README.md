@@ -6,7 +6,9 @@ de gain/loss e um resumo de desempenho.
 
 ## Estrutura
 
-- `app.py` — Dashboard (página inicial)
+- `app.py` — Dashboard (página inicial): gráfico de evolução do resultado (estilo "área
+  divergente", ganho em verde / perda em vermelho, com filtro de período, ativo e
+  R$/%) + pizza de distribuição do resultado por ativo
 - `pages/1_Lançar_Operação.py` — formulário de lançamento (com dropdown de ativo) + confirmação do valor real (T+1)
 - `pages/2_Resumo.py` — resumo agregado + registro completo (com exportação CSV)
 - `pages/3_Parâmetros.py` — parâmetros da conta e de cada ativo (capital, IRRF, valor por ponto, emolumento, margem, stop)
