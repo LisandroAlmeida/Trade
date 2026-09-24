@@ -123,3 +123,63 @@ else:
             st.rerun()
         else:
             st.info("Nenhum valor novo pra salvar — preencha a coluna 'Valor real (R$)' primeiro.")
+
+st.divider()
+st.subheader("Editar operação")
+st.caption(
+    "Corrige motivo da saída ou observações de um lançamento já feito (ex.: marcou Stop Loss por engano "
+    "quando foi Stop Gain). Não recalcula valores — pra corrigir pontos/contratos, me chama."
+)
+
+todas = get_operacoes().sort_values("data", ascending=False).copy()
+if todas.empty:
+    st.caption("Nenhuma operação lançada ainda.")
+else:
+    todas["Data"] = todas["data"].dt.strftime("%d/%m/%Y")
+    grade_edicao = todas[[
+        "id", "Data", "ativo_codigo", "resultado_pontos", "motivo_saida", "observacoes",
+    ]].rename(columns={
+        "ativo_codigo": "Ativo",
+        "resultado_pontos": "Pontos",
+        "motivo_saida": "Motivo",
+        "observacoes": "Observações",
+    })
+
+    editado2 = st.data_editor(
+        grade_edicao,
+        hide_index=True,
+        use_container_width=True,
+        disabled=["id", "Data", "Ativo", "Pontos"],
+        column_config={
+            "id": None,
+            "Motivo": st.column_config.SelectboxColumn(
+                options=["Stop Gain", "Stop Loss", "Saída manual", "Outro"]
+            ),
+        },
+        key="editor_edicao",
+    )
+
+    def _texto_ou_none(valor):
+        if valor is None or (isinstance(valor, float) and pd.isna(valor)) or valor == "":
+            return None
+        return valor
+
+    if st.button("Salvar edição", type="primary"):
+        alterados = 0
+        for (_, original), (_, nova) in zip(grade_edicao.iterrows(), editado2.iterrows()):
+            campos = {}
+            if nova["Motivo"] != original["Motivo"]:
+                campos["motivo_saida"] = nova["Motivo"]
+            obs_original = _texto_ou_none(original["Observações"])
+            obs_nova = _texto_ou_none(nova["Observações"])
+            if obs_nova != obs_original:
+                campos["observacoes"] = obs_nova
+            if campos:
+                update_operacao(int(nova["id"]), campos)
+                alterados += 1
+        if alterados:
+            st.success(f"{alterados} operação(ões) atualizada(s).")
+            st.cache_data.clear()
+            st.rerun()
+        else:
+            st.info("Nenhuma alteração pra salvar.")
