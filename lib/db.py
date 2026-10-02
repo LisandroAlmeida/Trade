@@ -85,3 +85,26 @@ def update_operacao(operacao_id: int, campos: dict) -> None:
 def delete_operacao(operacao_id: int) -> None:
     client = get_client()
     client.table("operacoes").delete().eq("id", operacao_id).execute()
+
+
+def get_aportes() -> pd.DataFrame:
+    """Depósitos feitos na conta depois da abertura (não entram no capital_inicial)."""
+    client = get_client()
+    rows = client.table("aportes").select("*").order("data").execute().data
+    colunas = ["id", "data", "valor", "observacoes"]
+    if not rows:
+        return pd.DataFrame(columns=colunas)
+    df = pd.DataFrame(rows)
+    df["data"] = pd.to_datetime(df["data"])
+    df["valor"] = df["valor"].astype(float)
+    return df
+
+
+def insert_aporte(campos: dict) -> None:
+    client = get_client()
+    client.table("aportes").insert(campos).execute()
+
+
+def delete_aporte(aporte_id: int) -> None:
+    client = get_client()
+    client.table("aportes").delete().eq("id", aporte_id).execute()

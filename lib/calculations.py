@@ -83,39 +83,52 @@ def resultado_final(row: pd.Series) -> float | None:
     return None if pd.isna(est) else est
 
 
-def build_dashboard(operacoes: pd.DataFrame, parametros: Parametros) -> pd.DataFrame:
+def _total_aportes_ate(aportes: pd.DataFrame, data_limite) -> float:
+    """Soma os aportes com data <= data_limite. aportes=None/vazio -> 0."""
+    if aportes is None or aportes.empty:
+        return 0.0
+    filtrados = aportes.loc[aportes["data"] <= data_limite, "valor"]
+    return float(filtrados.sum()) if len(filtrados) else 0.0
+
+
+def build_dashboard(operacoes: pd.DataFrame, parametros: Parametros, aportes: pd.DataFrame | None = None) -> pd.DataFrame:
     """
     Recebe as operações (já com ativo_nome/ativo_codigo, ordenadas por data) e devolve
     o DataFrame com as colunas calculadas: resultado_final, valor_confirmado,
     saldo_acumulado, pct_sobre_capital_inicial, sequencia_losses, sequencia_gains.
+
+    `aportes` (opcional) é um DataFrame com colunas data/valor — depósitos feitos na conta
+    DEPOIS da abertura (capital_inicial é só o ponto de partida; um aporte novo não deve
+    inflar esse valor, porque ele não veio de trading). O saldo de cada linha já soma os
+    aportes com data até aquele dia; o resultado de trading (pontos, %, sequências) continua
+    isolado dos aportes — só mede o desempenho das operações.
     """
     df = operacoes.sort_values("data").reset_index(drop=True).copy()
 
     df["resultado_final"] = df.apply(resultado_final, axis=1)
     df["valor_confirmado"] = df["resultado_apos_taxas_real"].notna()
 
-    saldo = parametros.capital_inicial
+    saldo_trading = 0.0  # cumulativo só do resultado das operações, sem aportes
     saldos, seq_losses, seq_gains = [], [], []
     losses_atual = gains_atual = 0
 
-    for valor in df["resultado_final"]:
-        if valor is None or pd.isna(valor):
-            saldos.append(saldo)
-            seq_losses.append(losses_atual)
-            seq_gains.append(gains_atual)
-            continue
+    for _, linha in df.iterrows():
+        valor = linha["resultado_final"]
+        if valor is not None and not pd.isna(valor):
+            saldo_trading = _round2(saldo_trading + valor)
+            if valor < 0:
+                losses_atual += 1
+                gains_atual = 0
+            elif valor > 0:
+                gains_atual += 1
+                losses_atual = 0
+            else:
+                losses_atual = gains_atual = 0
 
-        saldo = _round2(saldo + valor)
-        if valor < 0:
-            losses_atual += 1
-            gains_atual = 0
-        elif valor > 0:
-            gains_atual += 1
-            losses_atual = 0
-        else:
-            losses_atual = gains_atual = 0
-
-        saldos.append(saldo)
+        saldo_total = _round2(
+            parametros.capital_inicial + _total_aportes_ate(aportes, linha["data"]) + saldo_trading
+        )
+        saldos.append(saldo_total)
         seq_losses.append(losses_atual)
         seq_gains.append(gains_atual)
 
@@ -128,7 +141,7 @@ def build_dashboard(operacoes: pd.DataFrame, parametros: Parametros) -> pd.DataF
     return df
 
 
-def build_resumo(df_calculado: pd.DataFrame, parametros: Parametros) -> dict:
+def build_resumo(df_calculado: pd.DataFrame, parametros: Parametros, aportes: pd.DataFrame | None = None) -> dict:
     """Métricas agregadas (equivalente à aba Resumo da planilha original)."""
     com_resultado = df_calculado.dropna(subset=["resultado_final"])
     ganhos = com_resultado[com_resultado["resultado_final"] > 0]
@@ -136,6 +149,7 @@ def build_resumo(df_calculado: pd.DataFrame, parametros: Parametros) -> dict:
 
     total_realizado = df_calculado["resultado_realizado"].sum(skipna=True)
     total_apos_taxas = com_resultado["resultado_final"].sum()
+    total_aportes = float(aportes["valor"].sum()) if aportes is not None and not aportes.empty else 0.0
 
     return {
         "total_operacoes": int(df_calculado["resultado_realizado"].notna().sum()),
@@ -149,7 +163,9 @@ def build_resumo(df_calculado: pd.DataFrame, parametros: Parametros) -> dict:
         "resultado_total_realizado": float(total_realizado or 0),
         "resultado_total_apos_taxas": float(total_apos_taxas or 0),
         "total_taxas_pagas": float((total_realizado or 0) - (total_apos_taxas or 0)),
-        "saldo_atual": float(parametros.capital_inicial + (total_apos_taxas or 0)),
+        "total_aportes": total_aportes,
+        "saldo_atual": float(parametros.capital_inicial + total_aportes + (total_apos_taxas or 0)),
+        # retorno de trading puro — não cresce com aporte, só com resultado das operações.
         "retorno_sobre_capital_inicial": float((total_apos_taxas or 0) / parametros.capital_inicial)
         if parametros.capital_inicial
         else 0.0,

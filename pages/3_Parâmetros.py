@@ -1,12 +1,22 @@
+from datetime import date
+
 import streamlit as st
 
-from lib.db import get_ativos, get_parametros, update_ativo, update_parametros
-from lib.ui import header, setup_page
+from lib.db import (
+    delete_aporte,
+    get_ativos,
+    get_aportes,
+    get_parametros,
+    insert_aporte,
+    update_ativo,
+    update_parametros,
+)
+from lib.ui import fmt_brl, header, setup_page
 
 setup_page("Parâmetros", "⚙️")
 header("Parâmetros", "Conta e ativos — tudo abaixo recalcula automaticamente", "⚙️")
 
-tab_conta, tab_ativos = st.tabs(["Conta", "Ativos"])
+tab_conta, tab_ativos, tab_aportes = st.tabs(["Conta", "Ativos", "Aportes"])
 
 with tab_conta:
     p = get_parametros()
@@ -85,3 +95,45 @@ with tab_ativos:
         c3.metric("Relação Ganho:Risco", f"{ganho_alvo / risco:.2f}x" if risco else "—")
     else:
         st.caption("Preencha o stop loss/gain acima pra ver risco e ganho-alvo calculados.")
+
+with tab_aportes:
+    st.caption(
+        "Depósito feito na conta depois da abertura (ex.: reforço de capital). Fica separado do "
+        "capital inicial de propósito — soma no saldo atual, mas não entra na % de retorno sobre "
+        "capital inicial nem no gráfico de evolução, porque não é resultado de trading."
+    )
+    with st.form("novo_aporte", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        data_aporte = c1.date_input("Data", value=date.today(), format="DD/MM/YYYY")
+        valor_aporte = c2.number_input("Valor (R$)", min_value=0.0, step=1.0, format="%.2f")
+        obs_aporte = st.text_input("Observações (opcional)")
+        if st.form_submit_button("Adicionar aporte", type="primary"):
+            if valor_aporte > 0:
+                insert_aporte({
+                    "data": data_aporte.isoformat(),
+                    "valor": valor_aporte,
+                    "observacoes": obs_aporte or None,
+                })
+                st.success(f"Aporte de {fmt_brl(valor_aporte)} registrado.")
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.warning("Informe um valor maior que zero.")
+
+    st.write("")
+    aportes = get_aportes()
+    if aportes.empty:
+        st.caption("Nenhum aporte registrado ainda.")
+    else:
+        st.metric("Total aportado", fmt_brl(float(aportes["valor"].sum())))
+        tabela_aportes = aportes.sort_values("data", ascending=False).copy()
+        tabela_aportes["Data"] = tabela_aportes["data"].dt.strftime("%d/%m/%Y")
+        for _, linha in tabela_aportes.iterrows():
+            c1, c2, c3, c4 = st.columns([2, 2, 4, 1])
+            c1.write(linha["Data"])
+            c2.write(fmt_brl(linha["valor"]))
+            c3.write(linha["observacoes"] or "—")
+            if c4.button("🗑️", key=f"del_aporte_{linha['id']}", help="Excluir aporte"):
+                delete_aporte(int(linha["id"]))
+                st.cache_data.clear()
+                st.rerun()

@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from lib.calculations import build_dashboard, build_resumo
-from lib.db import get_operacoes, get_parametros
+from lib.db import get_aportes, get_operacoes, get_parametros
 from lib.ui import fmt_brl, fmt_pct, header, mini_card, setup_page
 
 # Cores reaproveitadas do tema do app (verde da marca) + vermelho validado pra
@@ -42,8 +42,9 @@ if operacoes.empty:
     st.info("Nenhuma operação lançada ainda. Vá em **Lançar Operação** no menu à esquerda para começar.")
     st.stop()
 
-df = build_dashboard(operacoes, parametros)
-resumo = build_resumo(df, parametros)
+aportes = get_aportes()
+df = build_dashboard(operacoes, parametros, aportes)
+resumo = build_resumo(df, parametros, aportes)
 ultima = df.iloc[-1]
 
 col1, col2, col3, col4 = st.columns(4)

@@ -56,6 +56,19 @@ create table if not exists operacoes (
 create index if not exists idx_operacoes_data on operacoes (data);
 create index if not exists idx_operacoes_ativo on operacoes (ativo_codigo);
 
+-- Aportes: depósitos feitos na conta DEPOIS da abertura. Ficam separados do
+-- capital_inicial de propósito — capital_inicial é só o ponto de partida; um aporte
+-- novo não deve inflar esse valor retroativamente, e não é resultado de trading.
+create table if not exists aportes (
+    id bigint generated always as identity primary key,
+    data date not null,
+    valor numeric(12,2) not null,
+    observacoes text,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists idx_aportes_data on aportes (data);
+
 -- App sem login por usuário (mesma decisão do app de finanças): mantemos RLS ligado
 -- (recomendação do Supabase) mas liberamos leitura/escrita total pra quem tiver a chave anon.
 alter table parametros enable row level security;
@@ -72,6 +85,11 @@ create policy "allow all - ativos" on ativos
 
 drop policy if exists "allow all - operacoes" on operacoes;
 create policy "allow all - operacoes" on operacoes
+    for all to anon, authenticated using (true) with check (true);
+
+alter table aportes enable row level security;
+drop policy if exists "allow all - aportes" on aportes;
+create policy "allow all - aportes" on aportes
     for all to anon, authenticated using (true) with check (true);
 
 -- resultado_apos_taxas_final: usa o valor real quando existir, senão a estimativa.

@@ -1,7 +1,7 @@
 import streamlit as st
 
 from lib.calculations import build_dashboard, build_resumo
-from lib.db import get_operacoes, get_parametros
+from lib.db import get_aportes, get_operacoes, get_parametros
 from lib.ui import fmt_brl, fmt_pct, header, setup_page
 
 setup_page("Resumo", "📊")
@@ -14,8 +14,9 @@ if operacoes.empty:
     st.info("Nenhuma operação lançada ainda.")
     st.stop()
 
-df = build_dashboard(operacoes, parametros)
-r = build_resumo(df, parametros)
+aportes = get_aportes()
+df = build_dashboard(operacoes, parametros, aportes)
+r = build_resumo(df, parametros, aportes)
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total de operações", r["total_operacoes"])
@@ -29,6 +30,7 @@ linhas = [
     ("Resultado total realizado (bruto)", fmt_brl(r["resultado_total_realizado"])),
     ("Resultado total após taxas", fmt_brl(r["resultado_total_apos_taxas"])),
     ("Total de taxas/corretagem pagas", fmt_brl(r["total_taxas_pagas"])),
+    ("Total aportado", fmt_brl(r["total_aportes"])),
     ("Saldo atual da conta", fmt_brl(r["saldo_atual"])),
     ("Retorno sobre o capital inicial (após taxas)", fmt_pct(r["retorno_sobre_capital_inicial"])),
 ]
