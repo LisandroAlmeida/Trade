@@ -11,6 +11,7 @@ tests_manual.py) e contra o valor de ponto do WDO confirmado via fontes pública
 """
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 import pandas as pd
@@ -26,6 +27,10 @@ class Parametros:
     capital_inicial: float
     aliquota_irrf: float  # ex.: 0.01 = 1%
     qtd_contratos_padrao: int
+    # Data a partir da qual o app considera operações/aportes (reset de ciclo —
+    # ex.: "reiniciar o controle do zero mantendo o histórico anterior guardado").
+    # None = sem corte, usa tudo desde o começo.
+    data_inicio_ciclo: date | None = None
 
 
 @dataclass

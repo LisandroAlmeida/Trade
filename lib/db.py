@@ -1,4 +1,6 @@
 """Camada de acesso ao Supabase (config em st.secrets)."""
+from datetime import date
+
 import pandas as pd
 import streamlit as st
 from supabase import create_client, Client
@@ -14,11 +16,21 @@ def get_client() -> Client:
 def get_parametros() -> Parametros:
     client = get_client()
     row = client.table("parametros").select("*").eq("id", 1).single().execute().data
+    data_inicio = row.get("data_inicio_ciclo")
     return Parametros(
         capital_inicial=float(row["capital_inicial"]),
         aliquota_irrf=float(row["aliquota_irrf"]),
         qtd_contratos_padrao=int(row["qtd_contratos_padrao"]),
+        data_inicio_ciclo=date.fromisoformat(data_inicio) if data_inicio else None,
     )
+
+
+def _data_inicio_ciclo() -> str | None:
+    """Corte de ciclo atual (se o usuário tiver 'reiniciado' o controle) — direto do
+    banco, sem montar o Parametros inteiro, pra não duplicar a query em cada get_*."""
+    client = get_client()
+    row = client.table("parametros").select("data_inicio_ciclo").eq("id", 1).single().execute().data
+    return row.get("data_inicio_ciclo")
 
 
 def update_parametros(campos: dict) -> None:
@@ -57,9 +69,15 @@ def update_ativo(codigo: str, campos: dict) -> None:
 
 
 def get_operacoes() -> pd.DataFrame:
-    """Operações com o nome/parâmetros do ativo já vindo junto (via view operacoes_calculadas)."""
+    """Operações com o nome/parâmetros do ativo já vindo junto (via view operacoes_calculadas).
+    Se o ciclo foi reiniciado (parametros.data_inicio_ciclo), só traz operações a partir
+    dessa data — o histórico anterior continua no banco, só sai da visão do app."""
     client = get_client()
-    rows = client.table("operacoes_calculadas").select("*").order("data").execute().data
+    query = client.table("operacoes_calculadas").select("*").order("data")
+    desde = _data_inicio_ciclo()
+    if desde:
+        query = query.gte("data", desde)
+    rows = query.execute().data
     colunas = [
         "id", "data", "ativo_codigo", "ativo_nome", "contratos", "resultado_pontos", "resultado_realizado",
         "contratos_operados", "resultado_apos_taxas_estimado", "resultado_apos_taxas_real",
@@ -88,9 +106,14 @@ def delete_operacao(operacao_id: int) -> None:
 
 
 def get_aportes() -> pd.DataFrame:
-    """Depósitos feitos na conta depois da abertura (não entram no capital_inicial)."""
+    """Depósitos feitos na conta depois da abertura (não entram no capital_inicial).
+    Também respeita data_inicio_ciclo — aporte de antes do reset não aparece mais."""
     client = get_client()
-    rows = client.table("aportes").select("*").order("data").execute().data
+    query = client.table("aportes").select("*").order("data")
+    desde = _data_inicio_ciclo()
+    if desde:
+        query = query.gte("data", desde)
+    rows = query.execute().data
     colunas = ["id", "data", "valor", "observacoes"]
     if not rows:
         return pd.DataFrame(columns=colunas)

@@ -13,6 +13,10 @@ create table if not exists parametros (
     capital_inicial numeric(12,2) not null default 983.37,
     aliquota_irrf numeric(5,4) not null default 0.01, -- 1% = 0.01, mesma alíquota p/ qualquer ativo
     qtd_contratos_padrao integer not null default 1,
+    -- Data de corte de um "reinício de ciclo" (ver Parâmetros > Conta > Reiniciar ciclo).
+    -- NULL = sem corte, app considera tudo desde o começo. Operações/aportes antes dessa
+    -- data continuam no banco (nunca são apagados), só saem da visão do app.
+    data_inicio_ciclo date,
     updated_at timestamptz not null default now(),
     constraint parametros_singleton check (id = 1)
 );

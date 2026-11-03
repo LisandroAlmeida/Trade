@@ -42,6 +42,43 @@ with tab_conta:
             st.success("Parâmetros da conta atualizados.")
             st.cache_data.clear()
 
+    st.divider()
+    st.subheader("Reiniciar ciclo")
+    if p.data_inicio_ciclo:
+        st.caption(
+            f"Ciclo atual começou em **{p.data_inicio_ciclo.strftime('%d/%m/%Y')}** — operações e aportes "
+            "antes dessa data ficam guardados no banco, mas não aparecem mais em nenhuma tela."
+        )
+    else:
+        st.caption(
+            "Use isso pra 'zerar' o controle sem apagar nada: define uma data de corte e um capital novo. "
+            "O dashboard, resumo e saldo passam a considerar só o que acontecer a partir dessa data — o "
+            "que já foi lançado continua no banco, só sai de vista."
+        )
+    with st.form("reiniciar_ciclo"):
+        c1, c2 = st.columns(2)
+        nova_data_inicio = c1.date_input("Reiniciar a partir de", value=date.today(), format="DD/MM/YYYY")
+        novo_capital = c2.number_input(
+            "Capital no início do novo ciclo (R$)", min_value=0.0, step=0.01, format="%.2f",
+            value=p.capital_inicial,
+        )
+        col_reiniciar, col_limpar = st.columns(2)
+        reiniciar = col_reiniciar.form_submit_button("Reiniciar ciclo", type="primary")
+        limpar = col_limpar.form_submit_button("Remover corte (ver tudo de novo)", disabled=not p.data_inicio_ciclo)
+        if reiniciar:
+            update_parametros({
+                "capital_inicial": novo_capital,
+                "data_inicio_ciclo": nova_data_inicio.isoformat(),
+            })
+            st.success(f"Ciclo reiniciado em {nova_data_inicio.strftime('%d/%m/%Y')} com R$ {novo_capital:,.2f}.")
+            st.cache_data.clear()
+            st.rerun()
+        if limpar:
+            update_parametros({"data_inicio_ciclo": None})
+            st.success("Corte removido — o app volta a considerar todo o histórico.")
+            st.cache_data.clear()
+            st.rerun()
+
 with tab_ativos:
     st.caption(
         "Cada ativo tem seu próprio valor por ponto (especificação fixa da B3), emolumento estimado, "
