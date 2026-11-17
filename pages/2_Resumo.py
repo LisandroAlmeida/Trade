@@ -30,7 +30,7 @@ linhas = [
     ("Resultado total realizado (bruto)", fmt_brl(r["resultado_total_realizado"])),
     ("Resultado total após taxas", fmt_brl(r["resultado_total_apos_taxas"])),
     ("Total de taxas/corretagem pagas", fmt_brl(r["total_taxas_pagas"])),
-    ("Total aportado", fmt_brl(r["total_aportes"])),
+    ("Aportes/Resgates (líquido)", fmt_brl(r["total_aportes"])),
     ("Saldo atual da conta", fmt_brl(r["saldo_atual"])),
     ("Retorno sobre o capital inicial (após taxas)", fmt_pct(r["retorno_sobre_capital_inicial"])),
 ]

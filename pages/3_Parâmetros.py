@@ -16,7 +16,7 @@ from lib.ui import fmt_brl, header, setup_page
 setup_page("Parâmetros", "⚙️")
 header("Parâmetros", "Conta e ativos — tudo abaixo recalcula automaticamente", "⚙️")
 
-tab_conta, tab_ativos, tab_aportes = st.tabs(["Conta", "Ativos", "Aportes"])
+tab_conta, tab_ativos, tab_aportes = st.tabs(["Conta", "Ativos", "Aportes/Resgate"])
 
 with tab_conta:
     p = get_parametros()
@@ -135,23 +135,26 @@ with tab_ativos:
 
 with tab_aportes:
     st.caption(
-        "Depósito feito na conta depois da abertura (ex.: reforço de capital). Fica separado do "
-        "capital inicial de propósito — soma no saldo atual, mas não entra na % de retorno sobre "
-        "capital inicial nem no gráfico de evolução, porque não é resultado de trading."
+        "Aporte: reforço de capital feito na conta. Resgate: saque feito da conta (ex.: retirada "
+        "pela corretora). Os dois ficam separados do capital inicial de propósito — entram no saldo "
+        "atual, mas não entram na % de retorno sobre capital inicial nem no gráfico de evolução, "
+        "porque não são resultado de trading."
     )
     with st.form("novo_aporte", clear_on_submit=True):
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns([2, 1, 2])
         data_aporte = c1.date_input("Data", value=date.today(), format="DD/MM/YYYY")
-        valor_aporte = c2.number_input("Valor (R$)", min_value=0.0, step=1.0, format="%.2f")
+        tipo_aporte = c2.radio("Tipo", ["Aporte", "Resgate"], horizontal=True)
+        valor_aporte = c3.number_input("Valor (R$)", min_value=0.0, step=1.0, format="%.2f")
         obs_aporte = st.text_input("Observações (opcional)")
-        if st.form_submit_button("Adicionar aporte", type="primary"):
+        if st.form_submit_button("Adicionar", type="primary"):
             if valor_aporte > 0:
+                valor_final = valor_aporte if tipo_aporte == "Aporte" else -valor_aporte
                 insert_aporte({
                     "data": data_aporte.isoformat(),
-                    "valor": valor_aporte,
+                    "valor": valor_final,
                     "observacoes": obs_aporte or None,
                 })
-                st.success(f"Aporte de {fmt_brl(valor_aporte)} registrado.")
+                st.success(f"{tipo_aporte} de {fmt_brl(valor_aporte)} registrado.")
                 st.cache_data.clear()
                 st.rerun()
             else:
@@ -160,9 +163,9 @@ with tab_aportes:
     st.write("")
     aportes = get_aportes()
     if aportes.empty:
-        st.caption("Nenhum aporte registrado ainda.")
+        st.caption("Nenhum aporte ou resgate registrado ainda.")
     else:
-        st.metric("Total aportado", fmt_brl(float(aportes["valor"].sum())))
+        st.metric("Saldo líquido de aportes/resgates", fmt_brl(float(aportes["valor"].sum())))
         tabela_aportes = aportes.sort_values("data", ascending=False).copy()
         tabela_aportes["Data"] = tabela_aportes["data"].dt.strftime("%d/%m/%Y")
         for _, linha in tabela_aportes.iterrows():
@@ -170,7 +173,7 @@ with tab_aportes:
             c1.write(linha["Data"])
             c2.write(fmt_brl(linha["valor"]))
             c3.write(linha["observacoes"] or "—")
-            if c4.button("🗑️", key=f"del_aporte_{linha['id']}", help="Excluir aporte"):
+            if c4.button("🗑️", key=f"del_aporte_{linha['id']}", help="Excluir"):
                 delete_aporte(int(linha["id"]))
                 st.cache_data.clear()
                 st.rerun()
