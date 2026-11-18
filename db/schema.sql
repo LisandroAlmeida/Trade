@@ -129,6 +129,9 @@ create table if not exists mesa_resultados (
     data date not null,
     valor numeric(12,2) not null,   -- resultado líquido do dia na mesa (R$), já considerado pela mesa
     contratos integer,              -- opcional — quantos contratos operou nesse dia
+    ativo_codigo text,              -- opcional — 'WIN' | 'WDO' | 'WIN+WDO' (habilita o card "Desempenho por ativo")
+    operacoes integer,              -- opcional — nº de operações/trades no dia (habilita "Operações/dia")
+    taxas numeric(12,2),            -- opcional — total de taxas pagas no dia, só para referência (valor já é líquido)
     observacoes text,
     created_at timestamptz not null default now()
 );

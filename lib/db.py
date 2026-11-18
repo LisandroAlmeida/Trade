@@ -149,12 +149,15 @@ def update_mesa_parametros(campos: dict) -> None:
 def get_mesa_resultados() -> pd.DataFrame:
     client = get_client()
     rows = client.table("mesa_resultados").select("*").order("data").execute().data
-    colunas = ["id", "data", "valor", "contratos", "observacoes"]
+    colunas = ["id", "data", "valor", "contratos", "ativo_codigo", "operacoes", "taxas", "observacoes"]
     if not rows:
         return pd.DataFrame(columns=colunas)
     df = pd.DataFrame(rows)
     df["data"] = pd.to_datetime(df["data"])
     df["valor"] = df["valor"].astype(float)
+    for coluna in ("taxas", "operacoes"):
+        if coluna in df.columns:
+            df[coluna] = pd.to_numeric(df[coluna], errors="coerce")
     return df
 
 

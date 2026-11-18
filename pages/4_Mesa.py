@@ -72,12 +72,25 @@ with st.form("novo_resultado_mesa", clear_on_submit=True):
     valor_resultado = c3.number_input(
         "Resultado do dia (R$) — negativo para loss", step=1.0, format="%.2f"
     )
+    c4, c5, c6 = st.columns([1.3, 1, 1.3])
+    ativo_dia = c4.selectbox("Ativo predominante (opcional)", ["—", "WIN", "WDO", "WIN+WDO"])
+    operacoes_dia = c5.number_input("Nº de operações (opcional)", min_value=0, step=1, value=0)
+    taxas_dia = c6.number_input(
+        "Taxas pagas (R$) (opcional)", min_value=0.0, step=0.5, format="%.2f", value=0.0
+    )
+    st.caption(
+        "Os três campos acima são opcionais — preencha quando quiser habilitar os cards de "
+        "% de taxas, operações/dia e desempenho por ativo mais abaixo."
+    )
     obs_resultado = st.text_input("Observações (opcional)")
     if st.form_submit_button("Adicionar", type="primary"):
         insert_mesa_resultado({
             "data": data_resultado.isoformat(),
             "valor": valor_resultado,
             "contratos": int(contratos_dia) or None,
+            "ativo_codigo": ativo_dia if ativo_dia != "—" else None,
+            "operacoes": int(operacoes_dia) or None,
+            "taxas": taxas_dia or None,
             "observacoes": obs_resultado or None,
         })
         st.success(f"Resultado de {fmt_brl(valor_resultado)} lançado para {data_resultado.strftime('%d/%m/%Y')}.")
@@ -93,11 +106,79 @@ if not resultados.empty:
     melhor_dia = evolucao["valor"].max()
     pior_dia = evolucao["valor"].min()
     dias_positivos_pct = (evolucao["valor"] > 0).mean()
+    amplitude = melhor_dia - pior_dia
+
+    pico = evolucao["acumulado"].cummax()
+    drawdown_maximo = (pico - evolucao["acumulado"]).max()
+
+    perda_diaria_maxima = p.get("perda_diaria_maxima")
+    dias_limitados = (
+        int((evolucao["valor"] <= -perda_diaria_maxima).sum()) if perda_diaria_maxima else None
+    )
 
     mc1, mc2, mc3 = st.columns(3)
     mc1.markdown(mini_card("Melhor dia", fmt_brl(melhor_dia), ""), unsafe_allow_html=True)
     mc2.markdown(mini_card("Pior dia", fmt_brl(pior_dia), ""), unsafe_allow_html=True)
     mc3.markdown(mini_card("Dias positivos", fmt_pct(dias_positivos_pct, 0), ""), unsafe_allow_html=True)
+
+    mc4, mc5, mc6 = st.columns(3)
+    mc4.markdown(
+        mini_card("Amplitude P&L", fmt_brl(amplitude), "melhor dia − pior dia"), unsafe_allow_html=True
+    )
+    mc5.markdown(
+        mini_card("Drawdown máximo", fmt_brl(drawdown_maximo), "maior queda desde o topo"),
+        unsafe_allow_html=True,
+    )
+    mc6.markdown(
+        mini_card(
+            "Dias limitados",
+            f"{dias_limitados}/{dias_operados}" if dias_limitados is not None else "—",
+            "bateram a perda diária máxima" if dias_limitados is not None else "defina a perda diária máxima",
+        ),
+        unsafe_allow_html=True,
+    )
+
+    tem_taxas = evolucao["taxas"].notna().any() if "taxas" in evolucao.columns else False
+    tem_operacoes = evolucao["operacoes"].notna().any() if "operacoes" in evolucao.columns else False
+    if tem_taxas or tem_operacoes:
+        mc7, mc8 = st.columns(2)
+        if tem_taxas:
+            total_taxas = evolucao["taxas"].fillna(0).sum()
+            total_bruto = evolucao["valor"].sum() + total_taxas
+            pct_taxas = (total_taxas / total_bruto) if total_bruto else None
+            mc7.markdown(
+                mini_card(
+                    "% Taxas sobre P&L",
+                    fmt_pct(pct_taxas, 1) if pct_taxas is not None else "—",
+                    f"total pago: {fmt_brl(total_taxas)}",
+                ),
+                unsafe_allow_html=True,
+            )
+        if tem_operacoes:
+            total_operacoes = evolucao["operacoes"].fillna(0).sum()
+            operacoes_por_dia = (total_operacoes / dias_operados) if dias_operados else None
+            mc8.markdown(
+                mini_card(
+                    "Operações/dia",
+                    f"{operacoes_por_dia:.1f}".replace(".", ",") if operacoes_por_dia is not None else "—",
+                    f"{int(total_operacoes)} no total",
+                ),
+                unsafe_allow_html=True,
+            )
+
+    dados_ativo = (
+        evolucao.dropna(subset=["ativo_codigo"]) if "ativo_codigo" in evolucao.columns else evolucao.iloc[0:0]
+    )
+    if not dados_ativo.empty:
+        st.write("")
+        st.caption("Desempenho por ativo")
+        resumo_ativo = dados_ativo.groupby("ativo_codigo")["valor"].agg(["sum", "count"]).reset_index()
+        cols_ativo = st.columns(len(resumo_ativo))
+        for col, (_, linha_ativo) in zip(cols_ativo, resumo_ativo.iterrows()):
+            col.markdown(
+                mini_card(linha_ativo["ativo_codigo"], fmt_brl(linha_ativo["sum"]), f"{int(linha_ativo['count'])} dia(s)"),
+                unsafe_allow_html=True,
+            )
 
     y = evolucao["acumulado"]
     y_pos = y.clip(lower=0)
@@ -139,7 +220,8 @@ if not resultados.empty:
         c1.write(linha["Data"])
         c2.write(fmt_brl(linha["valor"]))
         c3.write(f"{int(linha['contratos'])}c" if pd.notna(linha["contratos"]) else "—")
-        c4.write(linha["observacoes"] or "—")
+        ativo_tag = f"[{linha['ativo_codigo']}] " if pd.notna(linha.get("ativo_codigo")) else ""
+        c4.write(f"{ativo_tag}{linha['observacoes'] or '—'}")
         if c5.button("🗑️", key=f"del_mesa_{linha['id']}", help="Excluir"):
             delete_mesa_resultado(int(linha["id"]))
             st.cache_data.clear()
