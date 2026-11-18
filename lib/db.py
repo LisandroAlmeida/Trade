@@ -131,3 +131,38 @@ def insert_aporte(campos: dict) -> None:
 def delete_aporte(aporte_id: int) -> None:
     client = get_client()
     client.table("aportes").delete().eq("id", aporte_id).execute()
+
+
+def get_mesa_parametros() -> dict:
+    """Dados da conta de mesa (ex.: Canário) — regras do plano, ciclo atual e custos,
+    tudo separado da conta real porque as regras e taxas são diferentes."""
+    client = get_client()
+    row = client.table("mesa_parametros").select("*").eq("id", 1).single().execute().data
+    return row or {}
+
+
+def update_mesa_parametros(campos: dict) -> None:
+    client = get_client()
+    client.table("mesa_parametros").update(campos).eq("id", 1).execute()
+
+
+def get_mesa_resultados() -> pd.DataFrame:
+    client = get_client()
+    rows = client.table("mesa_resultados").select("*").order("data").execute().data
+    colunas = ["id", "data", "valor", "contratos", "observacoes"]
+    if not rows:
+        return pd.DataFrame(columns=colunas)
+    df = pd.DataFrame(rows)
+    df["data"] = pd.to_datetime(df["data"])
+    df["valor"] = df["valor"].astype(float)
+    return df
+
+
+def insert_mesa_resultado(campos: dict) -> None:
+    client = get_client()
+    client.table("mesa_resultados").insert(campos).execute()
+
+
+def delete_mesa_resultado(resultado_id: int) -> None:
+    client = get_client()
+    client.table("mesa_resultados").delete().eq("id", resultado_id).execute()
