@@ -116,6 +116,37 @@ if not resultados.empty:
         int((evolucao["valor"] <= -perda_diaria_maxima).sum()) if perda_diaria_maxima else None
     )
 
+    # --- Regra de Consistência (cláusula 5.9): um dia só vira ≥30% do resultado FINAL do
+    # ciclo se D >= (3/7) * soma dos outros dias do ciclo até então. Esse "teto de cautela"
+    # cresce conforme o ciclo acumula resultado — por isso avisamos o valor atual, não um
+    # número fixo, e sinalizamos retroativamente qualquer dia que já tenha passado do teto
+    # da época (considerando só os dias do ciclo atual, não o histórico todo).
+    ciclo_ini_str, ciclo_fim_str = p.get("ciclo_inicio"), p.get("ciclo_fim")
+    ciclo_resultados = evolucao
+    if ciclo_ini_str and ciclo_fim_str:
+        ciclo_ini_d = date.fromisoformat(ciclo_ini_str)
+        ciclo_fim_d = date.fromisoformat(ciclo_fim_str)
+        ciclo_resultados = evolucao[
+            (evolucao["data"].dt.date >= ciclo_ini_d) & (evolucao["data"].dt.date <= ciclo_fim_d)
+        ]
+    ciclo_resultados = ciclo_resultados.sort_values("data").reset_index(drop=True)
+    ciclo_resultados["acumulado_antes"] = ciclo_resultados["valor"].cumsum() - ciclo_resultados["valor"]
+    ciclo_resultados["teto_30pct"] = ciclo_resultados["acumulado_antes"].apply(
+        lambda s: (3 / 7) * s if s > 0 else None
+    )
+    tetos_por_id = dict(zip(ciclo_resultados["id"], ciclo_resultados["teto_30pct"]))
+
+    soma_ciclo_atual = float(ciclo_resultados["valor"].sum())
+    teto_proximo_dia = (3 / 7) * soma_ciclo_atual if soma_ciclo_atual > 0 else None
+
+    if teto_proximo_dia is not None:
+        st.info(
+            f"🎯 **Teto de cautela — Regra de Consistência 30% (cláusula 5.9):** até "
+            f"**{fmt_brl(teto_proximo_dia)}** no próximo dia mantém esse dia abaixo de 30% do "
+            f"resultado do ciclo, mesmo se ele fechasse agora. Acumulado do ciclo até aqui: "
+            f"{fmt_brl(soma_ciclo_atual)} — esse teto sobe conforme o ciclo acumula resultado."
+        )
+
     mc1, mc2, mc3 = st.columns(3)
     mc1.markdown(mini_card("Melhor dia", fmt_brl(melhor_dia), ""), unsafe_allow_html=True)
     mc2.markdown(mini_card("Pior dia", fmt_brl(pior_dia), ""), unsafe_allow_html=True)
@@ -221,7 +252,13 @@ if not resultados.empty:
         c2.write(fmt_brl(linha["valor"]))
         c3.write(f"{int(linha['contratos'])}c" if pd.notna(linha["contratos"]) else "—")
         ativo_tag = f"[{linha['ativo_codigo']}] " if pd.notna(linha.get("ativo_codigo")) else ""
-        c4.write(f"{ativo_tag}{linha['observacoes'] or '—'}")
+        teto_linha = tetos_por_id.get(linha["id"])
+        alerta_30pct = (
+            f" ⚠️ passou do teto de 30% da época ({fmt_brl(teto_linha)})"
+            if teto_linha is not None and linha["valor"] >= teto_linha
+            else ""
+        )
+        c4.write(f"{ativo_tag}{linha['observacoes'] or '—'}{alerta_30pct}")
         if c5.button("🗑️", key=f"del_mesa_{linha['id']}", help="Excluir"):
             delete_mesa_resultado(int(linha["id"]))
             st.cache_data.clear()
