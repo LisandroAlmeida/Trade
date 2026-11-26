@@ -33,7 +33,9 @@ st.caption(
     else "Preencha os dados da conta em **Parâmetros da mesa**, mais abaixo."
 )
 
-col1, col2, col3, col4 = st.columns(4)
+media_diaria = (saldo_acumulado / dias_operados) if dias_operados else None
+
+col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Saldo acumulado", fmt_brl(saldo_acumulado))
 col2.metric(
     "Ciclo atual",
@@ -49,6 +51,7 @@ col4.metric(
     "Dias operados",
     f"{dias_operados}/{dias_min}" if dias_min else str(dias_operados),
 )
+col5.metric("Média diária", fmt_brl(media_diaria) if media_diaria is not None else "—")
 
 if saldo_min_saque:
     falta = max(saldo_min_saque - saldo_acumulado, 0)
